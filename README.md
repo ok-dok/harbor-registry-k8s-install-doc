@@ -357,7 +357,25 @@ kubectl get ingress,svc,pods -n harbor
 harborAdminPassword: "Harbor12345"
 ```
 
-## 5. 修改集群镜像仓库配置
+## 5. 配置域名解析
+
+查看harbor ingress暴露的服务地址，将域名解析到对应的node ip上即可。
+
+```sh
+kubectl get ingress -n harbor
+```
+
+然后能够看到集群的每个node都被暴露了80和443端口，如果外部有负载均衡器，可以将集群的node ip统一加入到负载均衡器中。
+
+由于我们是在本地做测试，所以我们任取一个节点ip，在需要访问私有仓库的每一台机器上修改hosts文件，添加域名解析：
+
+```
+172.16.100.10 registry.dclingcloud.com
+```
+
+然后就可以使用浏览器访问：[registry.dclingcloud.com](https://registry.dclingcloud.com)，登录用户名：`admin`，登录密码：`Harbor12345`。
+
+## 6. 修改集群镜像仓库配置
 
 在完成harbor的部署之后，我们需要将每个节点的容器仓库地址配置修改，添加harbor的私有仓库。
 
@@ -518,3 +536,29 @@ systemctl restart containerd
     └─ ca.crt                 <-- CA根证书（证书签发机构）
 ```
 在这样的示例中，config_path="/etc/containerd/certs.d/"，hosts.toml提供额外的配置信息，具体可以参考issue-5309说明。
+
+## 7. 打包和推送镜像到私有仓库
+
+### 1. 使用docker命令
+首先将本地镜像打一个tag：
+```sh
+docker tag <sourceRepo>:<tag> registry.dclingcloud.com/library/<repo>:<tag>
+```
+然后推送镜像到私有仓库:
+
+```sh
+docker push registry.dclingcloud.com/library/<repo>:<tag>
+```
+
+### 2. 使用ctr命令
+对于containerd容器来说，没有docker命令，可以使用ctr命令来执行相关操作，ctr命令在docker环境中也能使用。
+
+将本地镜像打一个tag：
+```sh
+ctr i tag <sourceRepo>:<tag> registry.dclingcloud.com/library/<repo>:<tag>
+```
+然后推送镜像到私有仓库:
+
+```sh
+ctr i push registry.dclingcloud.com/library/<repo>:<tag>
+```
